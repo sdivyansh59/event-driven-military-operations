@@ -32,27 +32,11 @@ deps:
 	@go mod download
 	@go mod tidy
 
-# Database Migrations
-migrate-init:
-	@echo "Initializing migration tables..."
-	@cd cmd/migrate && go run main.go init
-
-migrate-up:
-	@echo "Running migrations..."
-	@cd cmd/migrate && go run main.go migrate
-
-migrate-down:
-	@echo "Rolling back last migration..."
-	@cd cmd/migrate && go run main.go rollback
-
-migrate-status:
-	@echo "Checking migration status..."
-	@cd cmd/migrate && go run main.go status
 
 migrate-create:
 	@echo "Creating new migration..."
 	@read -p "Enter migration name: " name; \
-	cd cmd/migrate && go run main.go create $$name
+	cd cmd.bun && go run main.go create_sql $$name
 
 # Help command
 help:
@@ -63,12 +47,6 @@ help:
 	@echo "  make clean          - Clean generated files and binaries"
 	@echo "  make test           - Run tests"
 	@echo "  make deps           - Install and tidy dependencies"
-	@echo ""
-	@echo "Database Migrations:"
-	@echo "  make migrate-init   - Initialize migration tables in database"
-	@echo "  make migrate-up     - Run all pending migrations"
-	@echo "  make migrate-down   - Rollback last migration group"
-	@echo "  make migrate-status - Show migration status"
 	@echo "  make migrate-create - Create a new migration file"
 	@echo ""
 	@echo "  make help           - Show this help message"
