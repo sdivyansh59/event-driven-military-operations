@@ -15,10 +15,8 @@ import (
 // InitializeApp wires up all dependencies and returns the application/service instance
 func InitializeApp() (*App, error) {
 	wire.Build(
-		// Core configuration - must be first
+		// Core configuration and logger
 		utils.ProvideDefaultConfig,
-
-		// Initialize global logger early (depends on config, returns logger instance)
 		utils.InitGlobalLogger,
 		utils.NewWithLogger,
 
@@ -28,7 +26,7 @@ func InitializeApp() (*App, error) {
 		// Infrastructure
 		setup.ProvideSingletonChiRouter,
 		setup.ProvideSingletonHuma,
-		//setup.ProvideSnowflakeGenerator,
+		setup.ProvideSnowflakeGenerator,
 		setup.ProvideControllers,
 
 		// Application
@@ -37,7 +35,7 @@ func InitializeApp() (*App, error) {
 		// Initialize application controllers, converter and repositories
 		// mission
 		mission.NewController,
-		//mission.NewConverter,
+		mission.NewConverter,
 		mission.NewRepository,
 	)
 	return nil, nil

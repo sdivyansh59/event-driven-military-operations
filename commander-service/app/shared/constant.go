@@ -4,6 +4,7 @@ package shared
 type MissionStatus string
 
 const (
+	MissionStatusCreated    MissionStatus = "CREATED"
 	MissionQueued           MissionStatus = "QUEUED"
 	MissionStatusInProgress MissionStatus = "IN_PROGRESS"
 	MissionStatusCompleted  MissionStatus = "COMPLETED"

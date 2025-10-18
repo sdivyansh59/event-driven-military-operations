@@ -20,9 +20,6 @@ func InitializeApp() (*App, error) {
 	mux := setup.ProvideSingletonChiRouter()
 	api := setup.ProvideSingletonHuma(mux)
 	defaultConfig := utils.ProvideDefaultConfig()
-	iRepository := mission.NewRepository()
-	controller := mission.NewController(iRepository)
-	controllers := setup.ProvideControllers(controller)
 	logger, err := utils.InitGlobalLogger(defaultConfig)
 	if err != nil {
 		return nil, err
@@ -31,10 +28,18 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	converter := mission.NewConverter()
 	commandersCampDB, err := dbconfig.ProvideCommandersCampDB(logger, withLogger, defaultConfig)
 	if err != nil {
 		return nil, err
 	}
+	generator, err := setup.ProvideSnowflakeGenerator()
+	if err != nil {
+		return nil, err
+	}
+	iRepository := mission.NewRepository(commandersCampDB, generator)
+	controller := mission.NewController(withLogger, converter, iRepository, generator)
+	controllers := setup.ProvideControllers(controller)
 	app := newApp(mux, api, defaultConfig, controllers, withLogger, commandersCampDB)
 	return app, nil
 }
