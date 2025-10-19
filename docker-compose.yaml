@@ -22,8 +22,32 @@ services:
     networks:
       - military-operation-network
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: military-operation-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-password}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"           # AMQP port
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672" # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    networks:
+      - military-operation-network
+
 volumes:
   postgres_data:
+    driver: local
+  rabbitmq_data:
     driver: local
 
 networks:
