@@ -10,3 +10,6 @@ const (
 	MissionStatusCompleted  MissionStatus = "COMPLETED"
 	MissionStatusFailed     MissionStatus = "FAILED"
 )
+
+const QueueNameOrder = "order_queue"
+const QueueNameStatus = "status_queue"

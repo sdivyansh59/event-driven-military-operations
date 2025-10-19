@@ -2,6 +2,7 @@ package mission
 
 import (
 	"commander-service/app/shared"
+	"commander-service/internal-lib/messaging"
 	"commander-service/internal-lib/snowflake"
 	"commander-service/internal-lib/utils"
 	"context"
@@ -12,15 +13,17 @@ type Controller struct {
 	Converter          *Converter
 	repository         IRepository
 	snowflakeGenerator *snowflake.Generator
+	messageProducer    *messaging.MessageProducer
 }
 
 func NewController(logger *utils.WithLogger, convertor *Converter, repository IRepository,
-	snowflakeGenerator *snowflake.Generator) *Controller {
+	snowflakeGenerator *snowflake.Generator, messageProducer *messaging.MessageProducer) *Controller {
 	return &Controller{
 		WithLogger:         logger,
 		Converter:          convertor,
 		repository:         repository,
 		snowflakeGenerator: snowflakeGenerator,
+		messageProducer:    messageProducer,
 	}
 }
 
@@ -46,25 +49,38 @@ func (c *Controller) CreateMission(ctx context.Context, input *CreateMissionInpu
 		return nil, err
 	}
 
+	// Send mission created event to RabbitMQ order_queue
+	missionCreatedMsg := &messaging.MissionCreatedMessage{
+		MissionID: snowflake.ConvertFromSnowflake(entity.ID),
+		Name:      entity.Name,
+		Status:    string(entity.Status),
+		CreatedAt: entity.CreatedAt,
+		CreatedBy: entity.CreatedBy,
+	}
+
+	if err := c.messageProducer.PublishMissionCreated(ctx, missionCreatedMsg); err != nil {
+		// Log error but don't fail the request - messaging is not critical for mission creation
+		c.Logger.Error().Err(err).
+			Str("mission_id", missionCreatedMsg.MissionID).
+			Msg("failed to publish mission created event to queue")
+	}
+
 	return &CreateMissionResponse{
 		Body: c.Converter.ToDTO(entity),
 	}, nil
 }
 
 func (c *Controller) GetMissionByID(ctx context.Context, input *GetMissionByIDInput) (*GetMissionByIDResponse, error) {
-	// authenticate user here (omitted for brevity)
-
-	// validate mission's id
-	missionID, err := snowflake.ConvertToSnowflake(input.ID)
+	// Convert string ID to snowflake ID
+	snowflakeID, err := snowflake.ConvertToSnowflake(input.ID)
 	if err != nil {
-		c.Logger.Error().Err(err).Msg("invalid mission ID")
+		c.Logger.Error().Err(err).Str("id", input.ID).Msg("invalid mission ID format")
 		return nil, err
 	}
 
-	// Fetch mission entity from repository
-	entity, err := c.repository.GetMissionByID(ctx, missionID)
+	entity, err := c.repository.GetMissionByID(ctx, snowflakeID)
 	if err != nil {
-		c.Logger.Error().Err(err).Msg("failed to retrieve mission")
+		c.Logger.Error().Err(err).Str("id", input.ID).Msg("failed to get mission")
 		return nil, err
 	}
 

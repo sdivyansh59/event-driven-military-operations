@@ -18,15 +18,16 @@ func RegisterRoutes(api *huma.API, c *setup.Controllers) {
 		Summary:       "Create a new mission",
 		Description:   "Create a new mission with a name, optional description, and creator information.",
 		Tags:          []string{"Missions"},
-		DefaultStatus: http.StatusCreated,
+		DefaultStatus: http.StatusAccepted,
 	}, c.Mission.CreateMission)
 
 	huma.Register(*api, huma.Operation{
-		OperationID: "get-mission-by-id",
-		Method:      http.MethodGet,
-		Path:        "/missions/{id}",
-		Summary:     "Get mission by ID",
-		Description: "Retrieve a mission by its unique identifier.",
-		Tags:        []string{"Missions"},
+		OperationID:   "get-mission-by-id",
+		Method:        http.MethodGet,
+		Path:          "/missions/{id}",
+		Summary:       "Get mission by ID",
+		Description:   "Retrieve a mission by its unique identifier.",
+		Tags:          []string{"Missions"},
+		DefaultStatus: http.StatusOK,
 	}, c.Mission.GetMissionByID)
 }

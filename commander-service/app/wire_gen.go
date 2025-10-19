@@ -38,7 +38,11 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	iRepository := mission.NewRepository(commandersCampDB, generator)
-	controller := mission.NewController(withLogger, converter, iRepository, generator)
+	messageProducer, err := setup.ProvideMessageProducer(withLogger, defaultConfig)
+	if err != nil {
+		return nil, err
+	}
+	controller := mission.NewController(withLogger, converter, iRepository, generator, messageProducer)
 	controllers := setup.ProvideControllers(controller)
 	app := newApp(mux, api, defaultConfig, controllers, withLogger, commandersCampDB)
 	return app, nil

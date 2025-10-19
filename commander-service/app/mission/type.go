@@ -47,3 +47,11 @@ type GetMissionByIDInput struct {
 type GetMissionByIDResponse struct {
 	Body MissionDTO
 }
+
+// Add error response types for different scenarios
+type ErrorResponse struct {
+	Body struct {
+		Message string `json:"message"`
+		Code    string `json:"code,omitempty"`
+	}
+}

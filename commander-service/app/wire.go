@@ -27,16 +27,18 @@ func InitializeApp() (*App, error) {
 		setup.ProvideSingletonChiRouter,
 		setup.ProvideSingletonHuma,
 		setup.ProvideSnowflakeGenerator,
+		setup.ProvideMessageProducer,
+
+		// Controllers
 		setup.ProvideControllers,
 
-		// Application
-		newApp,
-
-		// Initialize application controllers, converter and repositories
-		// mission
+		// Mission module
 		mission.NewController,
-		mission.NewConverter,
 		mission.NewRepository,
+		mission.NewConverter,
+
+		// Main application
+		newApp,
 	)
-	return nil, nil
+	return &App{}, nil
 }
