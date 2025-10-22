@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"worker-service/app/setup"
 	"worker-service/internal-lib/messaging"
 	"worker-service/internal-lib/utils"
 
@@ -14,15 +15,15 @@ import (
 // Consumer handles RabbitMQ message consumption
 type Consumer struct {
 	*utils.WithLogger
-	connection *amqp.Connection
-	channel    *amqp.Channel
-	config     *messaging.Config
-	done       chan bool
+	connection  *amqp.Connection
+	channel     *amqp.Channel
+	queueConfig *setup.MessageQueueConfig
+	done        chan bool
 }
 
 // NewConsumer creates a new RabbitMQ message consumer
-func NewConsumer(logger *utils.WithLogger, config) (*Consumer, error) {
-	conn, err := amqp.Dial(config.URL)
+func NewConsumer(logger *utils.WithLogger, queueConfig *setup.MessageQueueConfig) (*Consumer, error) {
+	conn, err := amqp.Dial(queueConfig.URL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
@@ -34,11 +35,11 @@ func NewConsumer(logger *utils.WithLogger, config) (*Consumer, error) {
 	}
 
 	consumer := &Consumer{
-		WithLogger: logger,
-		connection: conn,
-		channel:    ch,
-		config:     config,
-		done:       make(chan bool),
+		WithLogger:  logger,
+		connection:  conn,
+		channel:     ch,
+		queueConfig: queueConfig,
+		done:        make(chan bool),
 	}
 
 	// Initialize queue and exchange
@@ -53,15 +54,15 @@ func NewConsumer(logger *utils.WithLogger, config) (*Consumer, error) {
 // setupQueue declares the queue and exchange for consumption
 func (c *Consumer) setupQueue() error {
 	// Declare exchange (optional, using default exchange for simplicity)
-	if c.config.ExchangeName != "" {
+	if c.queueConfig.ExchangeName != "" {
 		err := c.channel.ExchangeDeclare(
-			c.config.ExchangeName, // name
-			"direct",              // type
-			true,                  // durable
-			false,                 // auto-deleted
-			false,                 // internal
-			false,                 // no-wait
-			nil,                   // arguments
+			c.queueConfig.ExchangeName, // name
+			"direct",                   // type
+			true,                       // durable
+			false,                      // auto-deleted
+			false,                      // internal
+			false,                      // no-wait
+			nil,                        // arguments
 		)
 		if err != nil {
 			return fmt.Errorf("failed to declare exchange: %w", err)
@@ -70,23 +71,23 @@ func (c *Consumer) setupQueue() error {
 
 	// Declare queue
 	_, err := c.channel.QueueDeclare(
-		c.config.QueueName, // name
-		true,               // durable
-		false,              // delete when unused
-		false,              // exclusive
-		false,              // no-wait
-		nil,                // arguments
+		c.queueConfig.QueueName, // name
+		true,                    // durable
+		false,                   // delete when unused
+		false,                   // exclusive
+		false,                   // no-wait
+		nil,                     // arguments
 	)
 	if err != nil {
 		return fmt.Errorf("failed to declare queue: %w", err)
 	}
 
 	// Bind queue to exchange (if using custom exchange)
-	if c.config.ExchangeName != "" {
+	if c.queueConfig.ExchangeName != "" {
 		err = c.channel.QueueBind(
-			c.config.QueueName,    // queue name
-			c.config.RoutingKey,   // routing key
-			c.config.ExchangeName, // exchange
+			c.queueConfig.QueueName,    // queue name
+			c.queueConfig.RoutingKey,   // routing key
+			c.queueConfig.ExchangeName, // exchange
 			false,
 			nil,
 		)
@@ -111,18 +112,18 @@ func (c *Consumer) setupQueue() error {
 // StartConsuming starts consuming messages from the queue
 func (c *Consumer) StartConsuming(ctx context.Context) error {
 	c.Logger.Info().
-		Str("queue", c.config.QueueName).
+		Str("queue", c.queueConfig.QueueName).
 		Msg("Starting to consume messages")
 
 	// Register consumer
 	msgs, err := c.channel.Consume(
-		c.config.QueueName, // queue
-		"",                 // consumer tag (empty for auto-generated)
-		false,              // auto-ack
-		false,              // exclusive
-		false,              // no-local
-		false,              // no-wait
-		nil,                // args
+		c.queueConfig.QueueName, // queue
+		"",                      // consumer tag (empty for auto-generated)
+		false,                   // auto-ack
+		false,                   // exclusive
+		false,                   // no-local
+		false,                   // no-wait
+		nil,                     // args
 	)
 	if err != nil {
 		return fmt.Errorf("failed to register consumer: %w", err)
@@ -263,7 +264,7 @@ func (c *Consumer) Reconnect() error {
 	c.Close()
 
 	// Establish new connection
-	conn, err := amqp.Dial(c.config.URL)
+	conn, err := amqp.Dial(c.queueConfig.URL)
 	if err != nil {
 		return fmt.Errorf("failed to reconnect to RabbitMQ: %w", err)
 	}

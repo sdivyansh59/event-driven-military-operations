@@ -1,16 +1,11 @@
 package main
 
 import (
-	"context"
 	"os"
 	"path/filepath"
-	"time"
 	"worker-service/app"
 
-	"worker-service/app/consumer"
-
 	"github.com/joho/godotenv"
-	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -27,7 +22,6 @@ func main() {
 	if err := application.Run(); err != nil {
 		log.Fatal().Err(err).Msg("Failed to run application")
 	}
-
 }
 
 func loadEnvironmentVariables() {

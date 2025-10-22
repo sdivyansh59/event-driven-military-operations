@@ -50,7 +50,9 @@ func newApp(config *setup.Config, logger *utils.WithLogger) *App {
 }
 
 // Run starts the worker service (both message consumer and health check server)
-func (a *App) Run(ctx context.Context) error {
+func (a *App) Run() error {
+	ctx := context.Background()
+
 	// Start HTTP server for health checks in background
 	go func() {
 		log.Info().Msgf("Starting health check server on %s", a.config.HTTPAddress)
@@ -60,7 +62,7 @@ func (a *App) Run(ctx context.Context) error {
 	}()
 
 	// Start consuming messages (this is the main worker functionality)
-	log.Info().Msg("Starting message consumer")
+	log.Info().Msg("Starting order consumer")
 	return a.consumer.StartConsuming(ctx)
 }
 
