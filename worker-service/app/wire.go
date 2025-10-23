@@ -22,8 +22,8 @@ func InitializeApp() (*App, error) {
 		// Main application
 		newApp,
 
-		// consumer
-
+		// producer
+		//producer.NewProducer,
 	)
 	return &App{}, nil
 }

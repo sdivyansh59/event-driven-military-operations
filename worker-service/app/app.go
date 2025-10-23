@@ -35,7 +35,7 @@ func newApp(config *setup.Config, logger *utils.WithLogger) *App {
 	}
 
 	// Initialize the consumer
-	messageConsumer, err := consumer.NewConsumer(logger, config.MessageQueueConfig)
+	messageConsumer, err := consumer.NewConsumer(logger)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create message consumer")
 		os.Exit(1)

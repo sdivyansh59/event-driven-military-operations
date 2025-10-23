@@ -31,9 +31,11 @@ type MissionDTO struct {
 }
 
 type CreateMissionInput struct {
-	Name        string  `json:"name" validate:"required,min=3,max=255"`
-	Description *string `json:"description" validate:"omitempty"`
-	CreatedBy   *string `json:"created_by" validate:"omitempty,email"`
+	Body struct {
+		Name        string  `json:"name" validate:"required"`
+		Description *string `json:"description,omitempty"`
+		CreatedBy   *string `json:"created_by,omitempty"`
+	}
 }
 
 type CreateMissionResponse struct {
@@ -46,12 +48,4 @@ type GetMissionByIDInput struct {
 
 type GetMissionByIDResponse struct {
 	Body MissionDTO
-}
-
-// Add error response types for different scenarios
-type ErrorResponse struct {
-	Body struct {
-		Message string `json:"message"`
-		Code    string `json:"code,omitempty"`
-	}
 }

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"commander-service/app/consumer"
+	"context"
 	"net/http"
 
 	"commander-service/app/setup"
@@ -22,9 +24,11 @@ type App struct {
 	commandersCampDB *bun.DB
 	controllers      *setup.Controllers
 	config           *utils.DefaultConfig
+	consumer         *consumer.Consumer
 }
 
-func newApp(r *chi.Mux, h *huma.API, config *utils.DefaultConfig, c *setup.Controllers, logger *utils.WithLogger, commandersCampDB *dbconfig.CommandersCampDB) *App {
+func newApp(r *chi.Mux, h *huma.API, config *utils.DefaultConfig, c *setup.Controllers, logger *utils.WithLogger,
+	commandersCampDB *dbconfig.CommandersCampDB, consumer *consumer.Consumer) *App {
 	return &App{
 		WithLogger:       logger,
 		router:           r,
@@ -32,14 +36,22 @@ func newApp(r *chi.Mux, h *huma.API, config *utils.DefaultConfig, c *setup.Contr
 		commandersCampDB: commandersCampDB.DB,
 		controllers:      c,
 		config:           config,
+		consumer:         consumer,
 	}
 }
 
 // Run starts the application server
 func (a *App) Run() error {
+	ctx := context.Background()
 	// Configure routes
 	a.registerRoutes()
 
+	// start consumer
+	err := a.consumer.StartConsuming(ctx)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to start consumer")
+	}
+	
 	// Start the HTTP server
 	log.Info().Msgf("Starting server on %s", a.config.HTTPAddress)
 	return http.ListenAndServe(a.config.HTTPAddress, a.router)

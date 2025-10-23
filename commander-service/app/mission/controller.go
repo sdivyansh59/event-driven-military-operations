@@ -1,8 +1,8 @@
 package mission
 
 import (
+	"commander-service/app/producer"
 	"commander-service/app/shared"
-	"commander-service/internal-lib/messaging"
 	"commander-service/internal-lib/snowflake"
 	"commander-service/internal-lib/utils"
 	"context"
@@ -13,11 +13,11 @@ type Controller struct {
 	Converter          *Converter
 	repository         IRepository
 	snowflakeGenerator *snowflake.Generator
-	messageProducer    *messaging.MessageProducer
+	messageProducer    *producer.Producer
 }
 
 func NewController(logger *utils.WithLogger, convertor *Converter, repository IRepository,
-	snowflakeGenerator *snowflake.Generator, messageProducer *messaging.MessageProducer) *Controller {
+	snowflakeGenerator *snowflake.Generator, messageProducer *producer.Producer) *Controller {
 	return &Controller{
 		WithLogger:         logger,
 		Converter:          convertor,
@@ -31,11 +31,10 @@ func (c *Controller) CreateMission(ctx context.Context, input *CreateMissionInpu
 	// authenticate user and validate input here (omitted for brevity)
 
 	entity := &MissionEntity{
-		ID:          c.snowflakeGenerator.Next(),
-		Name:        input.Name,
-		Description: input.Description,
+		Name:        input.Body.Name,
+		Description: input.Body.Description,
 		Status:      shared.MissionStatusCreated,
-		CreatedBy:   input.CreatedBy,
+		CreatedBy:   input.Body.CreatedBy,
 	}
 
 	if err := c.repository.CreateMission(ctx, entity); err != nil {
@@ -50,18 +49,15 @@ func (c *Controller) CreateMission(ctx context.Context, input *CreateMissionInpu
 	}
 
 	// Send mission created event to RabbitMQ order_queue
-	missionCreatedMsg := &messaging.MissionCreatedMessage{
+	message := &shared.OrderMessage{
 		MissionID: snowflake.ConvertFromSnowflake(entity.ID),
-		Name:      entity.Name,
 		Status:    string(entity.Status),
-		CreatedAt: entity.CreatedAt,
-		CreatedBy: entity.CreatedBy,
 	}
 
-	if err := c.messageProducer.PublishMissionCreated(ctx, missionCreatedMsg); err != nil {
+	if err := c.messageProducer.PublishOrder(ctx, message); err != nil {
 		// Log error but don't fail the request - messaging is not critical for mission creation
 		c.Logger.Error().Err(err).
-			Str("mission_id", missionCreatedMsg.MissionID).
+			Str("mission_id", message.MissionID).
 			Msg("failed to publish mission created event to queue")
 	}
 

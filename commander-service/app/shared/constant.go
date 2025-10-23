@@ -1,15 +1,25 @@
 package shared
 
-// MissionStatus represents the possible states of a job
-type MissionStatus string
-
 const (
 	MissionStatusCreated    MissionStatus = "CREATED"
-	MissionQueued           MissionStatus = "QUEUED"
+	MissionStatusQueued     MissionStatus = "QUEUED"
 	MissionStatusInProgress MissionStatus = "IN_PROGRESS"
 	MissionStatusCompleted  MissionStatus = "COMPLETED"
 	MissionStatusFailed     MissionStatus = "FAILED"
 )
 
-const QueueNameOrder = "order_queue"
-const QueueNameStatus = "status_queue"
+const OrderQueueName = "order_queue"
+const StatusQueueName = "status_queue"
+
+// MissionStatus represents the possible states of a job
+type MissionStatus string
+
+type OrderMessage struct {
+	MissionID string `json:"missionID"`
+	Status    string `json:"status"`
+}
+
+type StatusMessage struct {
+	MissionID string `json:"mission_id"`
+	Status    string `json:"status"`
+}

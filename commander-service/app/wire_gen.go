@@ -7,7 +7,9 @@
 package app
 
 import (
+	"commander-service/app/consumer"
 	"commander-service/app/mission"
+	"commander-service/app/producer"
 	"commander-service/app/setup"
 	"commander-service/app/setup/dbconfig"
 	"commander-service/internal-lib/utils"
@@ -38,12 +40,16 @@ func InitializeApp() (*App, error) {
 		return nil, err
 	}
 	iRepository := mission.NewRepository(commandersCampDB, generator)
-	messageProducer, err := setup.ProvideMessageProducer(withLogger, defaultConfig)
+	producerProducer, err := producer.NewProducer(withLogger)
 	if err != nil {
 		return nil, err
 	}
-	controller := mission.NewController(withLogger, converter, iRepository, generator, messageProducer)
+	controller := mission.NewController(withLogger, converter, iRepository, generator, producerProducer)
 	controllers := setup.ProvideControllers(controller)
-	app := newApp(mux, api, defaultConfig, controllers, withLogger, commandersCampDB)
+	consumerConsumer, err := consumer.NewConsumer(withLogger, iRepository)
+	if err != nil {
+		return nil, err
+	}
+	app := newApp(mux, api, defaultConfig, controllers, withLogger, commandersCampDB, consumerConsumer)
 	return app, nil
 }

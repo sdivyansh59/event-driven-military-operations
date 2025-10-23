@@ -1,12 +1,12 @@
 package consumer
 
 import (
+	"commander-service/app/mission"
+	"commander-service/app/shared"
+	"commander-service/internal-lib/utils"
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-	"worker-service/app/shared"
-	"worker-service/internal-lib/utils"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -19,13 +19,15 @@ type Consumer struct {
 	orderQueueName  string
 	statusQueueName string
 	done            chan bool
+
+	missionRepository mission.IRepository
 }
 
 // NewConsumer creates a new RabbitMQ message consumer
-func NewConsumer(logger *utils.WithLogger) (*Consumer, error) {
-	rabbitMqURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
+func NewConsumer(logger *utils.WithLogger, missionRepo mission.IRepository) (*Consumer, error) {
+	rabbitMQURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
 
-	conn, err := amqp.Dial(rabbitMqURL)
+	conn, err := amqp.Dial(rabbitMQURL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to RabbitMQ: %w", err)
 	}
@@ -37,10 +39,13 @@ func NewConsumer(logger *utils.WithLogger) (*Consumer, error) {
 	}
 
 	consumer := &Consumer{
-		WithLogger: logger,
-		connection: conn,
-		channel:    ch,
-		done:       make(chan bool),
+		WithLogger:        logger,
+		connection:        conn,
+		channel:           ch,
+		orderQueueName:    shared.OrderQueueName,
+		statusQueueName:   shared.StatusQueueName,
+		done:              make(chan bool),
+		missionRepository: missionRepo,
 	}
 
 	// Initialize queue and exchange
@@ -54,14 +59,14 @@ func NewConsumer(logger *utils.WithLogger) (*Consumer, error) {
 
 // setupQueue declares the queue and exchange for consumption
 func (c *Consumer) setupQueue() error {
-	// Declare order queue
+	// Declare queue
 	_, err := c.channel.QueueDeclare(
-		shared.OrderQueueName, // name
-		true,                  // durable
-		false,                 // delete when unused
-		false,                 // exclusive
-		false,                 // no-wait
-		nil,                   // arguments
+		c.statusQueueName, // name
+		true,              // durable
+		false,             // delete when unused
+		false,             // exclusive
+		false,             // no-wait
+		nil,               // arguments
 	)
 	if err != nil {
 		return fmt.Errorf("failed to declare queue: %w", err)
@@ -83,21 +88,21 @@ func (c *Consumer) setupQueue() error {
 // StartConsuming starts consuming messages from the queue
 func (c *Consumer) StartConsuming(ctx context.Context) error {
 	c.Logger.Info().
-		Str("queue", shared.OrderQueueName).
+		Str("queue", c.statusQueueName).
 		Msg("Starting to consume messages")
 
 	// Register consumer
 	msgs, err := c.channel.Consume(
-		shared.OrderQueueName, // queue
-		"",                    // consumer tag (empty for auto-generated)
-		false,                 // auto-ack
-		false,                 // exclusive
-		false,                 // no-local
-		false,                 // no-wait
-		nil,                   // args
+		c.statusQueueName, // queue
+		"",                // consumer tag (empty for auto-generated)
+		false,             // auto-ack
+		false,             // exclusive
+		false,             // no-local
+		false,             // no-wait
+		nil,               // args
 	)
 	if err != nil {
-		return fmt.Errorf("failed to register consumer: %w", err)
+		return fmt.Errorf("failed to register %s consumer: %w", c.statusQueueName, err)
 	}
 
 	// Process messages in a goroutine
@@ -132,21 +137,21 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 		Str("routing_key", delivery.RoutingKey).
 		Msg("Processing message")
 
-	// Parse the mission created message
-	var message shared.OrderMessage
+	// Parse the status-update message
+	var message shared.StatusMessage
 	if err := json.Unmarshal(delivery.Body, &message); err != nil {
 		c.Logger.Error().
 			Err(err).
 			Str("message_id", delivery.MessageId).
 			Msg("Failed to unmarshal message")
 
-		// Reject the message without requeuing for malformed messages
+		// Reject the message without requesting for malformed messages
 		delivery.Nack(false, false)
 		return
 	}
 
 	// Process the message based on its content
-	if err := c.executeMission(&message); err != nil {
+	if err := c.updateOrderStatus(context.Background(), &message); err != nil {
 		c.Logger.Error().
 			Err(err).
 			Str("mission_id", message.MissionID).
@@ -172,21 +177,9 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 		Msg("Message ack and processed successfully")
 }
 
-// executeMission processes mission created events
-func (c *Consumer) executeMission(message *shared.OrderMessage) error {
-	c.Logger.Info().
-		Str("mission_id", message.MissionID).
-		Str("status", message.Status).
-		Msg("Executing mission")
-
-	// Simulate processing time
-	t := shared.GenerateRandomNumber(5, 15)
-	time.Sleep(time.Duration(t) * time.Second)
-
-	// For now, just log the processing
-	c.Logger.Info().
-		Str("mission_id", message.MissionID).
-		Msg("Mission executed successfully")
+// updateOrderStatus processes mission created events
+func (c *Consumer) updateOrderStatus(ctx context.Context, message *shared.StatusMessage) error {
+	//c.missionRepository
 
 	return nil
 }
@@ -226,6 +219,7 @@ func (c *Consumer) Reconnect() error {
 	c.Close()
 
 	rabbitMQURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
+
 	// Establish new connection
 	conn, err := amqp.Dial(rabbitMQURL)
 	if err != nil {

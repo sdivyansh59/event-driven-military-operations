@@ -4,7 +4,9 @@
 package app
 
 import (
+	"commander-service/app/consumer"
 	"commander-service/app/mission"
+	"commander-service/app/producer"
 	"commander-service/app/setup"
 	"commander-service/app/setup/dbconfig"
 	"commander-service/internal-lib/utils"
@@ -27,7 +29,6 @@ func InitializeApp() (*App, error) {
 		setup.ProvideSingletonChiRouter,
 		setup.ProvideSingletonHuma,
 		setup.ProvideSnowflakeGenerator,
-		setup.ProvideMessageProducer,
 
 		// Controllers
 		setup.ProvideControllers,
@@ -39,6 +40,8 @@ func InitializeApp() (*App, error) {
 
 		// Main application
 		newApp,
+		consumer.NewConsumer,
+		producer.NewProducer,
 	)
 	return &App{}, nil
 }
