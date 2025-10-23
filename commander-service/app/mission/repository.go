@@ -11,6 +11,7 @@ import (
 type IRepository interface {
 	CreateMission(ctx context.Context, mission *MissionEntity) error
 	GetMissionByID(ctx context.Context, id snowflake.ID) (*MissionEntity, error)
+	UpdateMission(ctx context.Context, mission *MissionEntity) (*MissionEntity, error)
 }
 
 type Repository struct {
@@ -40,6 +41,21 @@ func (r *Repository) CreateMission(ctx context.Context, mission *MissionEntity) 
 
 func (r *Repository) GetMissionByID(ctx context.Context, id snowflake.ID) (*MissionEntity, error) {
 	entity, err := r.handler.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
+	return entity, nil
+}
+
+func (r *Repository) UpdateMission(ctx context.Context, mission *MissionEntity) (*MissionEntity, error) {
+	mission.UpdatedAt = time.Now()
+	err := r.handler.Update(ctx, mission)
+	if err != nil {
+		return nil, err
+	}
+
+	entity, err := r.handler.GetByID(ctx, mission.ID)
 	if err != nil {
 		return nil, err
 	}

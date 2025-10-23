@@ -4,6 +4,7 @@
 package app
 
 import (
+	"worker-service/app/producer"
 	"worker-service/app/setup"
 	"worker-service/internal-lib/utils"
 
@@ -23,7 +24,7 @@ func InitializeApp() (*App, error) {
 		newApp,
 
 		// producer
-		//producer.NewProducer,
+		producer.NewProducer,
 	)
 	return &App{}, nil
 }

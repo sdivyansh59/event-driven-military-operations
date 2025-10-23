@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"worker-service/app/shared"
 	"worker-service/internal-lib/utils"
 
@@ -81,7 +80,7 @@ func (p *Producer) PublishStatus(ctx context.Context, status MissionStatus) erro
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
-	log.Printf("Published status for mission %s: %s", status.MissionID, status.Status)
+	p.Logger.Info().Str("mission_id", status.MissionID).Str("status", status.Status).Msg("Published status for mission")
 	return nil
 }
 

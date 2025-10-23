@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"time"
+	"worker-service/app/producer"
 	"worker-service/app/shared"
 	"worker-service/internal-lib/utils"
 
@@ -19,10 +20,12 @@ type Consumer struct {
 	orderQueueName  string
 	statusQueueName string
 	done            chan bool
+
+	producer *producer.Producer
 }
 
 // NewConsumer creates a new RabbitMQ message consumer
-func NewConsumer(logger *utils.WithLogger) (*Consumer, error) {
+func NewConsumer(logger *utils.WithLogger, producer *producer.Producer) (*Consumer, error) {
 	rabbitMqURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
 
 	conn, err := amqp.Dial(rabbitMqURL)
@@ -41,6 +44,7 @@ func NewConsumer(logger *utils.WithLogger) (*Consumer, error) {
 		connection: conn,
 		channel:    ch,
 		done:       make(chan bool),
+		producer:   producer,
 	}
 
 	// Initialize queue and exchange
@@ -114,7 +118,7 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 					c.done <- true
 					return
 				}
-				c.processMessage(d)
+				c.processMessage(ctx, d)
 			}
 		}
 	}()
@@ -126,7 +130,7 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 }
 
 // processMessage handles individual message processing
-func (c *Consumer) processMessage(delivery amqp.Delivery) {
+func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 	c.Logger.Info().
 		Str("message_id", delivery.MessageId).
 		Str("routing_key", delivery.RoutingKey).
@@ -146,11 +150,21 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 	}
 
 	// Process the message based on its content
-	if err := c.executeMission(&message); err != nil {
+	if err := c.executeMission(ctx, &message); err != nil {
+		// update status to FAILED
+		if err := c.producer.PublishStatus(ctx, producer.MissionStatus{
+			MissionID: message.MissionID,
+			Status:    string(shared.MissionStatusFailed),
+		}); err != nil {
+			c.Logger.Error().Err(err).
+				Str("mission_id", message.MissionID).
+				Msg("failed to publish completed status")
+		}
+
 		c.Logger.Error().
 			Err(err).
 			Str("mission_id", message.MissionID).
-			Str("message_id", delivery.MessageId).
+			Str("status", message.Status).
 			Msg("Failed to process mission created message")
 
 		// Reject and requeue the message for processing errors
@@ -166,22 +180,46 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 			Msg("Failed to acknowledge message")
 	}
 
+	// update status to completed
+	if err := c.producer.PublishStatus(ctx, producer.MissionStatus{
+		MissionID: message.MissionID,
+		Status:    string(shared.MissionStatusCompleted),
+	}); err != nil {
+		c.Logger.Error().Err(err).
+			Str("mission_id", message.MissionID).
+			Msg("failed to publish completed status")
+	}
+
 	c.Logger.Info().
 		Str("mission_id", message.MissionID).
-		Str("message_id", delivery.MessageId).
-		Msg("Message ack and processed successfully")
+		Str("status", string(shared.MissionStatusCompleted)).
+		Msg("Message processed successfully")
 }
 
 // executeMission processes mission created events
-func (c *Consumer) executeMission(message *shared.OrderMessage) error {
+func (c *Consumer) executeMission(ctx context.Context, message *shared.OrderMessage) error {
 	c.Logger.Info().
 		Str("mission_id", message.MissionID).
 		Str("status", message.Status).
 		Msg("Executing mission")
 
+	// update status to in-progress
+	if err := c.producer.PublishStatus(ctx, producer.MissionStatus{
+		MissionID: message.MissionID,
+		Status:    string(shared.MissionStatusInProgress),
+	}); err != nil {
+		return fmt.Errorf("failed to publish in-progress status: %w", err)
+	}
+
 	// Simulate processing time
 	t := shared.GenerateRandomNumber(5, 15)
 	time.Sleep(time.Duration(t) * time.Second)
+
+	// success rate 80% times and failed 20% times
+	isSuccess := shared.GenerateRandomNumber(1, 10) <= 8
+	if !isSuccess {
+		return fmt.Errorf("mission execution failed due to simulated error")
+	}
 
 	// For now, just log the processing
 	c.Logger.Info().

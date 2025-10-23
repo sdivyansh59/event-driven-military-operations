@@ -48,7 +48,15 @@ func (c *Controller) CreateMission(ctx context.Context, input *CreateMissionInpu
 		return nil, err
 	}
 
-	// Send mission created event to RabbitMQ order_queue
+	// update mission status to queued
+	entity.Status = shared.MissionStatusQueued
+	entity, err = c.repository.UpdateMission(ctx, entity)
+	if err != nil {
+		c.Logger.Error().Err(err).Msg("failed to update mission status to queued")
+		return nil, err
+	}
+
+	// Send order(mission) to RabbitMQ order_queue for execution
 	message := &shared.OrderMessage{
 		MissionID: snowflake.ConvertFromSnowflake(entity.ID),
 		Status:    string(entity.Status),

@@ -7,6 +7,7 @@
 package app
 
 import (
+	"worker-service/app/producer"
 	"worker-service/app/setup"
 	"worker-service/internal-lib/utils"
 )
@@ -25,6 +26,10 @@ func InitializeApp() (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	app := newApp(config, withLogger)
+	producerProducer, err := producer.NewProducer(withLogger)
+	if err != nil {
+		return nil, err
+	}
+	app := newApp(config, withLogger, producerProducer)
 	return app, nil
 }

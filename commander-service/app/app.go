@@ -47,11 +47,13 @@ func (a *App) Run() error {
 	a.registerRoutes()
 
 	// start consumer
-	err := a.consumer.StartConsuming(ctx)
-	if err != nil {
-		log.Fatal().Err(err).Msg("Failed to start consumer")
-	}
-	
+	go func() {
+		err := a.consumer.StartConsuming(ctx)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Failed to start consumer")
+		}
+	}()
+
 	// Start the HTTP server
 	log.Info().Msgf("Starting server on %s", a.config.HTTPAddress)
 	return http.ListenAndServe(a.config.HTTPAddress, a.router)

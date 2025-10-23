@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -83,7 +82,7 @@ func (p *Producer) PublishOrder(ctx context.Context, message *shared.OrderMessag
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 
-	log.Printf("Published order for mission %s: %s", message.MissionID, message.Status)
+	p.Logger.Info().Str("mission_id", message.MissionID).Str("status", message.Status).Msgf("Published order for mission")
 	return nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"worker-service/app/consumer"
+	"worker-service/app/producer"
 	"worker-service/app/setup"
 	"worker-service/internal-lib/utils"
 
@@ -20,7 +21,7 @@ type App struct {
 }
 
 // NewApp creates a new worker service app instance
-func newApp(config *setup.Config, logger *utils.WithLogger) *App {
+func newApp(config *setup.Config, logger *utils.WithLogger, producer *producer.Producer) *App {
 	// Setup simple HTTP server with just health check
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthCheckHandler)
@@ -35,7 +36,7 @@ func newApp(config *setup.Config, logger *utils.WithLogger) *App {
 	}
 
 	// Initialize the consumer
-	messageConsumer, err := consumer.NewConsumer(logger)
+	messageConsumer, err := consumer.NewConsumer(logger, producer)
 	if err != nil {
 		log.Fatal().Err(err).Msg("Failed to create message consumer")
 		os.Exit(1)

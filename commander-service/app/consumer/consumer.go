@@ -3,6 +3,7 @@ package consumer
 import (
 	"commander-service/app/mission"
 	"commander-service/app/shared"
+	"commander-service/internal-lib/snowflake"
 	"commander-service/internal-lib/utils"
 	"context"
 	"encoding/json"
@@ -132,11 +133,6 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 
 // processMessage handles individual message processing
 func (c *Consumer) processMessage(delivery amqp.Delivery) {
-	c.Logger.Info().
-		Str("message_id", delivery.MessageId).
-		Str("routing_key", delivery.RoutingKey).
-		Msg("Processing message")
-
 	// Parse the status-update message
 	var message shared.StatusMessage
 	if err := json.Unmarshal(delivery.Body, &message); err != nil {
@@ -151,11 +147,11 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 	}
 
 	// Process the message based on its content
-	if err := c.updateOrderStatus(context.Background(), &message); err != nil {
+	if err := c.updateMissionStatus(context.Background(), &message); err != nil {
 		c.Logger.Error().
 			Err(err).
 			Str("mission_id", message.MissionID).
-			Str("message_id", delivery.MessageId).
+			Str("status", message.Status).
 			Msg("Failed to process mission created message")
 
 		// Reject and requeue the message for processing errors
@@ -173,13 +169,27 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 
 	c.Logger.Info().
 		Str("mission_id", message.MissionID).
-		Str("message_id", delivery.MessageId).
-		Msg("Message ack and processed successfully")
+		Str("status", message.Status).
+		Msg("Message status updated successfully")
 }
 
 // updateOrderStatus processes mission created events
-func (c *Consumer) updateOrderStatus(ctx context.Context, message *shared.StatusMessage) error {
-	//c.missionRepository
+func (c *Consumer) updateMissionStatus(ctx context.Context, message *shared.StatusMessage) error {
+	id, err := snowflake.ConvertToSnowflake(message.MissionID)
+	if err != nil {
+		return fmt.Errorf("invalid mission ID: %w", err)
+	}
+
+	entity, err := c.missionRepository.GetMissionByID(ctx, id)
+	if err != nil {
+		return fmt.Errorf("failed to get mission by ID: %w", err)
+	}
+
+	entity.Status = shared.MissionStatus(message.Status)
+	_, err = c.missionRepository.UpdateMission(ctx, entity)
+	if err != nil {
+		return fmt.Errorf("failed to update mission: %w", err)
+	}
 
 	return nil
 }
