@@ -1,0 +1,14 @@
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","level":"info","mode":"development","log_file":"logs/commander-service.log","time":"2025-10-23T20:32:17+05:30","message":"Global logger initialized successfully"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"using postgres url from environment variable"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"connected to database"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"Job Scheduler Database health check passed"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"Running migrations from path: migrations"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"No new migrations to run"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"Migrations completed successfully"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:17+05:30","message":"Starting server on 0.0.0.0:8030"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","queue":"status_queue","time":"2025-10-23T20:32:17+05:30","message":"Starting to consume messages"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:25+05:30","message":"Authentication Middleware Called..................."}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"QUEUED","time":"2025-10-23T20:32:25+05:30","message":"Published order for mission"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","requestID":"Divyanshs-MacBook-Pro.local/xqKftpZjzu-000001","method":"POST","url":"/missions","proto":"HTTP/1.1","remoteAddr":"127.0.0.1:56493","status":202,"size":222,"duration":12.545708,"time":"2025-10-23T20:32:25+05:30","message":"request completed"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"IN_PROGRESS","time":"2025-10-23T20:32:25+05:30","message":"Message status updated successfully"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"COMPLETED","time":"2025-10-23T20:32:33+05:30","message":"Message status updated successfully"}

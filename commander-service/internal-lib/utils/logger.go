@@ -29,17 +29,31 @@ func InitGlobalLogger(config *DefaultConfig) (*zerolog.Logger, error) {
 		// Log the error but don't fail initialization
 	}
 
+	// Create logs directory if it doesn't exist
+	logsDir := GetEnvOr("LOG_DIR", "logs")
+	if err := os.MkdirAll(logsDir, 0755); err != nil {
+		return nil, fmt.Errorf("failed to create logs directory: %w", err)
+	}
+
+	// Open log file for writing (truncate existing content on restart)
+	logFilePath := fmt.Sprintf("%s/commander-service.log", logsDir)
+	logFile, err := os.OpenFile(logFilePath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open log file: %w", err)
+	}
+
 	// Configure output writer
-	var output io.Writer = os.Stdout
+	var output io.Writer
 	if isProd {
-		// JSON format for production (better for log aggregators)
-		output = os.Stdout
+		// JSON format for production (better for log aggregators) - write to file
+		output = logFile
 	} else {
-		// Pretty console output for development
-		output = zerolog.ConsoleWriter{
+		// Development: write to both console (pretty) and file (JSON)
+		consoleWriter := zerolog.ConsoleWriter{
 			Out:        os.Stdout,
 			TimeFormat: "2006/01/02 15:04:05",
 		}
+		output = zerolog.MultiLevelWriter(consoleWriter, logFile)
 	}
 
 	// Set up the global logger
@@ -56,6 +70,7 @@ func InitGlobalLogger(config *DefaultConfig) (*zerolog.Logger, error) {
 	log.Info().
 		Str("level", logLevel.String()).
 		Str("mode", env).
+		Str("log_file", logFilePath).
 		Msg("Global logger initialized successfully")
 
 	return &logger, nil

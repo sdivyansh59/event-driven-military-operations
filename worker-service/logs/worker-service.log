@@ -1,0 +1,10 @@
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","level":"debug","mode":"development","log_file":"logs/worker-service.log","time":"2025-10-23T20:32:18+05:30","message":"Global logger initialized successfully"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:18+05:30","message":"Starting order consumer"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","queue":"order_queue","time":"2025-10-23T20:32:18+05:30","message":"Starting to consume messages"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","time":"2025-10-23T20:32:18+05:30","message":"Starting health check server on 0.0.0.0:8001"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","message_id":"","routing_key":"order_queue","time":"2025-10-23T20:32:25+05:30","message":"Processing message"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"QUEUED","time":"2025-10-23T20:32:25+05:30","message":"Executing mission"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"IN_PROGRESS","time":"2025-10-23T20:32:25+05:30","message":"Published status for mission"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","time":"2025-10-23T20:32:33+05:30","message":"Mission executed successfully"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"COMPLETED","time":"2025-10-23T20:32:33+05:30","message":"Published status for mission"}
+{"level":"info","host":"Divyanshs-MacBook-Pro.local","env":"development","mission_id":"1870941540784803840","status":"COMPLETED","time":"2025-10-23T20:32:33+05:30","message":"Message processed successfully"}
