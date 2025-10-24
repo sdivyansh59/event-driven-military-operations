@@ -16,6 +16,7 @@ type Producer struct {
 	channel         *amqp.Channel
 	statusQueueName string
 	orderQueueName  string
+	tokenQueueName  string
 }
 
 type MissionStatus struct {
@@ -57,6 +58,7 @@ func NewProducer(logger *utils.WithLogger) (*Producer, error) {
 		channel:         channel,
 		statusQueueName: shared.StatusQueueName,
 		orderQueueName:  shared.OrderQueueName,
+		tokenQueueName:  shared.TokenQueueName,
 	}, nil
 }
 

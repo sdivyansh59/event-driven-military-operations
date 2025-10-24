@@ -10,6 +10,7 @@ const (
 
 const OrderQueueName = "order_queue"
 const StatusQueueName = "status_queue"
+const TokenQueueName = "token_queue"
 
 // MissionStatus represents the possible states of a job
 type MissionStatus string

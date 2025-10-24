@@ -53,6 +53,7 @@ services:
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       DEBUG: ${DEBUG:-false}
+      PORT: ${PORT:-8080}
       LOG_DIR: /app/logs
       POSTGRES_DB_HOST: postgres
       POSTGRES_DB_PORT: 5432
@@ -61,9 +62,10 @@ services:
       POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-commanders_camp_db}
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/
       ORDER_QUEUE_NAME: ${ORDER_QUEUE_NAME:-order_queue}
-      HTTP_PORT: ${HTTP_PORT:-8080}
+      STATUS_QUEUE_NAME: ${STATUS_QUEUE_NAME:-status_queue}
+      TOKEN_QUEUE_NAME: ${TOKEN_QUEUE_NAME:-token_queue}
     ports:
-      - "${HTTP_PORT:-8080}:8080"
+      - "${PORT:-8080}:8080"
     volumes:
       - ./commander-service/logs:/app/logs
     depends_on:
@@ -86,6 +88,8 @@ services:
       LOG_DIR: /app/logs
       RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/
       ORDER_QUEUE_NAME: ${ORDER_QUEUE_NAME:-order_queue}
+      STATUS_QUEUE_NAME: ${STATUS_QUEUE_NAME:-status_queue}
+      TOKEN_QUEUE_NAME: ${TOKEN_QUEUE_NAME:-token_queue}
     volumes:
       - ./worker-service/logs:/app/logs
     depends_on:
