@@ -372,17 +372,6 @@ cd mission_control
 docker-compose up -d
 ```
 
-This will start:
-- PostgreSQL (port 5432)
-- RabbitMQ (port 5672, Management UI: 15672)
-- Worker Service
-
-3. **Run Commander Service** (if not in docker-compose)
-```bash
-cd commander-service
-go run main.go
-```
-
 This will:
 - Build and start Commander Service (port 8080)
 - Build and start Worker Service
@@ -390,12 +379,12 @@ This will:
 - Start RabbitMQ (port 5672, Management UI: 15672)
 - Run database migrations automatically
 
-4. **Access the services**
+3. **Access the services**
 - Commander API: `http://localhost:8080`
 - RabbitMQ Management: `http://localhost:15672` (admin/password)
 - PostgreSQL: `localhost:5432` (postgres/postgres)
 
-5. **View logs**
+4. **View logs**
 ```bash
 # All services
 docker-compose logs -f
@@ -405,7 +394,7 @@ docker-compose logs -f commander-service
 docker-compose logs -f worker-service
 ```
 
-6. **Stop services**
+5. **Stop services**
 ```bash
 docker-compose down
 
@@ -489,7 +478,7 @@ Response: 200 OK
 }
 ```
 
-### Why NACK on Token Expiration?
+### Health Check
 - **Automatic Retry**: RabbitMQ requeues NACK'd messages
 - **No Message Loss**: Status update will be retried with new token
 - **Clear Separation**: Token validation separate from business logic
@@ -500,14 +489,89 @@ Both services implement comprehensive logging:
 
 **Commander Service:**
 - Mission creation/updates
-- Order publications
-- Status consumption
-- Token validation events
-- Token generation and rotation
+## 🔄 Message Flow
+
+### Complete Mission Execution Flow
+
+1. **Mission Creation**
+   - User creates mission via REST API
+   - Commander saves to DB (status: CREATED)
+   - Commander updates status to QUEUED
+   - Commander publishes to `order_queue`
+
+2. **Worker Receives Order**
+   - Worker consumes from `order_queue`
+   - Worker updates status to IN_PROGRESS
+   - Worker sends status update with token to `status_queue`
+
+3. **Commander Validates Token**
+   - Commander consumes from `status_queue`
+   - Commander validates authentication token
+   - If valid: Updates DB, sends ACK
+   - If expired: Sends NACK, publishes new token to `token_queue`
+
+4. **Token Rotation (if needed)**
+   - Worker consumes new token from `token_queue`
+   - Worker updates internal token state
+   - Message is requeued and retried with new token
+
+5. **Mission Execution**
+   - Worker simulates mission execution (random duration)
+   - Worker determines success/failure randomly
+
+6. **Final Status Update**
+1. **Start all services**
+```bash
+docker-compose up -d
+```
+
+2. **Create a mission via API**
+```bash
+curl -X POST http://localhost:8080/missions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Operation Desert Storm",
+    "description": "Secure the northern perimeter",
+    "created_by": "Commander Alpha"
+  }'
+```
+
+3. **Get mission status**
+```bash
+curl http://localhost:8080/missions/{mission_id}
+```
+
+4. **Monitor RabbitMQ dashboard**
+- Visit: `http://localhost:15672` (admin/password)
+- Check message flow in the Queues tab
+
+5. **Check logs for token rotation events**
+```bash
+docker-compose logs -f commander-service | grep -i token
+docker-compose logs -f worker-service | grep -i token
+```
+
+6. **Verify mission status in database**
+```bash
+docker exec -it military-operation-postgres psql -U postgres -d commanders_camp_db
+SELECT id, name, status, created_at FROM mission ORDER BY created_at DESC LIMIT 10;
+```
+
+### RabbitMQ Dashboard
+![RabbitMQ Dashboard](screenshots/rabbitMQ-dashboard.png)
+
+### Message Queue Traffic
+![Message Queue Traffic](screenshots/message-queue_traffic.png)
+
+### Mission Database Table
+![Mission Table](screenshots/mission_tbl.png)
+![Mission Table 2](screenshots/mission_tbl2.png)
 
 **Worker Service:**
 - Order reception
 - Mission execution progress
+**Built with ❤️ using Go, RabbitMQ, and PostgreSQL**
+
 - Status publications
 - Token updates
 - Error conditions
@@ -539,5 +603,4 @@ The token lifespan is configurable (default 30 seconds). You can:
 
 ---
 
-**Built with ❤️ using Go, RabbitMQ, and PostgreSQL**
 
