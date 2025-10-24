@@ -359,7 +359,7 @@ mission_control/
 - Go 1.21+ (for local development)
 - Make (optional)
 
-### Quick Start with Docker (Recommended)
+### Quick Start with Docker
 
 1. **Clone the repository**
 ```bash
@@ -367,15 +367,20 @@ git clone <repository-url>
 cd mission_control
 ```
 
-2. **Create environment file** (optional - uses defaults if not provided)
-```bash
-cp .env.example .env
-# Edit .env with your configurations if needed
-```
-
-3. **Start all services**
+2. **Start all services**
 ```bash
 docker-compose up -d
+```
+
+This will start:
+- PostgreSQL (port 5432)
+- RabbitMQ (port 5672, Management UI: 15672)
+- Worker Service
+
+3. **Run Commander Service** (if not in docker-compose)
+```bash
+cd commander-service
+go run main.go
 ```
 
 This will:
@@ -408,38 +413,7 @@ docker-compose down
 docker-compose down -v
 ```
 
-### Using Pre-built Docker Images
-
-If you want to use pre-built images from Docker Hub instead of building locally:
-
-1. **Pull the images**
-```bash
-docker pull <your-dockerhub-username>/mission-control-commander:latest
-docker pull <your-dockerhub-username>/mission-control-worker:latest
-```
-
-2. **Update docker-compose.yaml** to use images instead of build:
-```yaml
-commander-service:
-  image: <your-dockerhub-username>/mission-control-commander:latest
-  # Remove the 'build' section
-  
-worker-service:
-  image: <your-dockerhub-username>/mission-control-worker:latest
-  # Remove the 'build' section
-```
-
-3. **Start services**
-```bash
-docker-compose up -d
-```
-
-### Local Development (Without Docker)
-
-**Prerequisites:**
-- Go 1.21+
-- PostgreSQL running locally
-- RabbitMQ running locally
+### Local Development
 
 **Commander Service:**
 ```bash
@@ -464,46 +438,6 @@ go mod download
 
 # Run service
 make run  # or: go run main.go
-```
-
-### Environment Variables
-
-Create a `.env` file in the root directory or use environment-specific configurations.
-
-**Production (.env):**
-```env
-ENVIRONMENT=production
-DEBUG=false
-PORT=8080
-
-# Database
-POSTGRES_DB_HOST=postgres
-POSTGRES_DB_PORT=5432
-POSTGRES_DB_USER=postgres
-POSTGRES_DB_PASSWORD=postgres
-POSTGRES_DB_NAME=commanders_camp_db
-
-# RabbitMQ
-RABBITMQ_USER=admin
-RABBITMQ_PASSWORD=password
-RABBITMQ_PORT=5672
-RABBITMQ_MANAGEMENT_PORT=15672
-
-# Queues
-ORDER_QUEUE_NAME=order_queue
-STATUS_QUEUE_NAME=status_queue
-TOKEN_QUEUE_NAME=token_queue
-```
-
-**Development (.env.local):**
-```env
-ENVIRONMENT=development
-DEBUG=true
-PORT=8080
-
-# Use localhost for local development
-POSTGRES_DB_HOST=localhost
-RABBITMQ_URL=amqp://admin:password@localhost:5672/
 ```
 
 ## 📡 API Endpoints
@@ -547,313 +481,13 @@ Response: 200 OK
 ### Health Check (for both services)
 ```http
 GET /health
-1. **Start all services**
-```bash
-docker-compose up -d
-```
 
-2. **Create a mission via API**
-```bash
-curl -X POST http://localhost:8080/missions \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "Operation Desert Storm",
-    "description": "Secure the northern perimeter",
-    "created_by": "Commander Alpha"
-## 🐳 Docker Hub Deployment
-
-### Building and Pushing Images
-
-If you want to publish your Docker images to Docker Hub for others to use:
-
-1. **Build the images**
-```bash
-# Build commander service
-docker build -t <your-dockerhub-username>/mission-control-commander:latest ./commander-service
-
-# Build worker service
-docker build -t <your-dockerhub-username>/mission-control-worker:latest ./worker-service
-```
-
-2. **Tag images (optional - for versioning)**
-```bash
-docker tag <your-dockerhub-username>/mission-control-commander:latest \
-           <your-dockerhub-username>/mission-control-commander:v1.0.0
-
-docker tag <your-dockerhub-username>/mission-control-worker:latest \
-           <your-dockerhub-username>/mission-control-worker:v1.0.0
-```
-
-3. **Login to Docker Hub**
-```bash
-docker login
-```
-
-4. **Push images to Docker Hub**
-```bash
-# Push latest tags
-docker push <your-dockerhub-username>/mission-control-commander:latest
-docker push <your-dockerhub-username>/mission-control-worker:latest
-
-# Push version tags (if created)
-docker push <your-dockerhub-username>/mission-control-commander:v1.0.0
-docker push <your-dockerhub-username>/mission-control-worker:v1.0.0
-```
-
-### Quick Deploy Using Docker Hub Images
-
-Create a simplified `docker-compose.prod.yaml` for users who want to use pre-built images:
-
-```yaml
-version: '3.8'
-
-services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: mission-control-postgres
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: commanders_camp_db
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - mission-control-network
-
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: mission-control-rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: admin
-      RABBITMQ_DEFAULT_PASS: password
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - mission-control-network
-
-  commander-service:
-    image: <your-dockerhub-username>/mission-control-commander:latest
-    container_name: mission-control-commander
-    environment:
-      POSTGRES_DB_HOST: postgres
-      POSTGRES_DB_USER: postgres
-      POSTGRES_DB_PASSWORD: postgres
-      POSTGRES_DB_NAME: commanders_camp_db
-      RABBITMQ_URL: amqp://admin:password@rabbitmq:5672/
-    ports:
-      - "8080:8080"
-    depends_on:
-      - postgres
-      - rabbitmq
-    networks:
-      - mission-control-network
-
-  worker-service:
-    image: <your-dockerhub-username>/mission-control-worker:latest
-    container_name: mission-control-worker
-    environment:
-      RABBITMQ_URL: amqp://admin:password@rabbitmq:5672/
-    depends_on:
-      - rabbitmq
-    networks:
-      - mission-control-network
-
-volumes:
-  postgres_data:
-  rabbitmq_data:
-
-networks:
-  mission-control-network:
-    driver: bridge
-```
-
-**Usage for end users:**
-```bash
-# Download the compose file
-curl -O https://raw.githubusercontent.com/<your-repo>/docker-compose.prod.yaml
-
-# Start everything
-docker-compose -f docker-compose.prod.yaml up -d
-
-# Access the application
-# Commander API: http://localhost:8080
-# RabbitMQ UI: http://localhost:15672 (admin/password)
-```
-
-### Multi-Architecture Builds
-
-To support multiple platforms (AMD64, ARM64):
-
-```bash
-# Create a builder
-docker buildx create --use
-
-# Build and push multi-arch images
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t <your-dockerhub-username>/mission-control-commander:latest \
-  --push ./commander-service
-
-docker buildx build --platform linux/amd64,linux/arm64 \
-  -t <your-dockerhub-username>/mission-control-worker:latest \
-  --push ./worker-service
-```
-
-## 🚀 Production Deployment Checklist
-
-Before deploying to production:
-
-- [ ] Update environment variables with secure passwords
-- [ ] Enable HTTPS/TLS for API endpoints
-- [ ] Configure proper database backups
-- [ ] Set up monitoring and alerting
-- [ ] Review and adjust RabbitMQ configurations
-- [ ] Configure log aggregation
-- [ ] Set resource limits in docker-compose
-- [ ] Enable authentication for RabbitMQ management UI
-- [ ] Review security best practices
-- [ ] Test disaster recovery procedures
-
-## 🤝 Contributing
-
-Contributions are welcome! Please follow these guidelines:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-**Coding Standards:**
-- Follow Go best practices and conventions
-- Add tests for new features
-- Update documentation
-- Use conventional commit messages
-- Ensure Docker builds succeed
-
-## 📄 License
-
-This project is for educational purposes.
-
-  }'
-```
-
-3. **Get mission status**
-## 🙏 Acknowledgments
-
-- Built as a demonstration of event-driven microservices architecture
-- Inspired by military command and control systems
-- Thanks to the Go, RabbitMQ, and PostgreSQL communities
-
-```bash
-# Replace {mission_id} with the ID from previous response
-curl http://localhost:8080/missions/{mission_id}
-```
-
-4. **Monitor RabbitMQ dashboard**
-- Visit: `http://localhost:15672`
-- Login: admin/password
-- Navigate to Queues tab to see message flow
-
-5. **Check logs for token rotation events**
-```bash
-# Commander service logs
-docker-compose logs -f commander-service | grep -i token
-
-# Worker service logs
-docker-compose logs -f worker-service | grep -i token
-```
-
-6. **Verify mission status in database**
-```bash
-# Connect to PostgreSQL
-docker exec -it military-operation-postgres psql -U postgres -d commanders_camp_db
-
-# Query missions
-SELECT id, name, status, created_at, updated_at FROM mission ORDER BY created_at DESC LIMIT 10;
-```
+Response: 200 OK
+{
+  "status": "healthy",
+  "timestamp": "2025-10-24T10:00:00Z"
 }
 ```
-
-## 🔄 Message Flow
-1. Set a shorter duration for testing (modify token generation code)
-### Complete Mission Execution Flow
-
-1. **Mission Creation**
-### Load Testing
-
-Test with multiple missions simultaneously:
-```bash
-for i in {1..10}; do
-  curl -X POST http://localhost:8080/missions \
-    -H "Content-Type: application/json" \
-    -d "{\"name\": \"Mission $i\", \"created_by\": \"Tester\"}" &
-done
-wait
-```
-
-   - User creates mission via REST API
-   - Commander saves to DB (status: CREATED)
-   - Commander updates status to QUEUED
-   - Commander publishes to `order_queue`
-
-2. **Worker Receives Order**
-   - Worker consumes from `order_queue`
-   - Worker updates status to IN_PROGRESS
-   - Worker sends status update with token to `status_queue`
-
-3. **Commander Validates Token**
-   - Commander consumes from `status_queue`
-   - Commander validates authentication token
-   - If valid: Updates DB, sends ACK
-   - If expired: Sends NACK, publishes new token to `token_queue`
-
-4. **Token Rotation (if needed)**
-   - Worker consumes new token from `token_queue`
-   - Worker updates internal token state
-   - Message is requeued and retried with new token
-
-5. **Mission Execution**
-   - Worker simulates mission execution (random duration)
-   - Worker determines success/failure randomly
-
-6. **Final Status Update**
-   - Worker sends final status (COMPLETED/FAILED) with token
-   - Commander validates, updates DB, sends ACK
-   - Mission lifecycle complete
-
-## 📸 Screenshots
-
-### RabbitMQ Dashboard
-![RabbitMQ Dashboard](screenshots/rabbitMQ-dashboard.png)
-*RabbitMQ Management interface showing queue statistics*
-
-### Message Queue Traffic
-![Message Queue Traffic](screenshots/message-queue_traffic.png)
-*Real-time message traffic across queues*
-
-### Mission Database Table
-![Mission Table](screenshots/mission_tbl.png)
-![Mission Table 2](screenshots/mission_tbl2.png)
-*PostgreSQL mission table with status tracking*
-
-## 🔍 Key Design Decisions
-
-### Why Event-Driven Architecture?
-- **Decoupling**: Services operate independently
-- **Scalability**: Easy to add more workers
-- **Resilience**: Message queues buffer temporary failures
-- **Asynchronous**: Non-blocking operations
-
-### Why Token Rotation via Queue?
-- **Consistency**: Same communication pattern as other messages
-- **Simplicity**: No additional HTTP endpoints needed
-- **Reliability**: Leverages RabbitMQ's delivery guarantees
-- **Event-Driven**: Aligns with overall architecture
 
 ### Why NACK on Token Expiration?
 - **Automatic Retry**: RabbitMQ requeues NACK'd messages
