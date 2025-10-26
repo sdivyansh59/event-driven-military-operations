@@ -23,4 +23,10 @@ type OrderMessage struct {
 type StatusMessage struct {
 	MissionID string `json:"mission_id"`
 	Status    string `json:"status"`
+	Token     string `json:"token"`
+}
+
+type TokenMessage struct {
+	Token     string `json:"token"`
+	ExpiresAt int64  `json:"expires_at"`
 }

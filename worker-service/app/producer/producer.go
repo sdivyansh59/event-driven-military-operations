@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 	"worker-service/app/shared"
 	"worker-service/internal-lib/utils"
 
@@ -14,12 +15,16 @@ type Producer struct {
 	*utils.WithLogger
 	conn            *amqp.Connection
 	channel         *amqp.Channel
+	token           string
+	tokenMu         sync.RWMutex
 	statusQueueName string
+	tokenQueueName  string
 }
 
 type MissionStatus struct {
 	MissionID string `json:"mission_id"`
 	Status    string `json:"status"`
+	Token     string `json:"token"`
 }
 
 func NewProducer(logger *utils.WithLogger) (*Producer, error) {
@@ -32,10 +37,11 @@ func NewProducer(logger *utils.WithLogger) (*Producer, error) {
 
 	channel, err := conn.Channel()
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
+	// Declare status queue
 	_, err = channel.QueueDeclare(
 		shared.StatusQueueName, // name
 		true,                   // durable
@@ -49,12 +55,12 @@ func NewProducer(logger *utils.WithLogger) (*Producer, error) {
 		conn.Close()
 		return nil, fmt.Errorf("failed to declare queue: %w", err)
 	}
-
 	return &Producer{
 		WithLogger:      logger,
 		conn:            conn,
 		channel:         channel,
 		statusQueueName: shared.StatusQueueName,
+		tokenQueueName:  shared.TokenQueueName,
 	}, nil
 }
 
@@ -82,6 +88,20 @@ func (p *Producer) PublishStatus(ctx context.Context, status MissionStatus) erro
 
 	p.Logger.Info().Str("mission_id", status.MissionID).Str("status", status.Status).Msg("Published status for mission")
 	return nil
+}
+
+// SetToken safely updates the token (thread-safe)
+func (p *Producer) SetToken(token string) {
+	p.tokenMu.Lock()
+	defer p.tokenMu.Unlock()
+	p.token = token
+}
+
+// GetToken safely retrieves the current token (thread-safe)
+func (p *Producer) GetToken() string {
+	p.tokenMu.RLock()
+	defer p.tokenMu.RUnlock()
+	return p.token
 }
 
 func (p *Producer) Close() error {

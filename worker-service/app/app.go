@@ -30,6 +30,7 @@ func newApp(config *setup.Config, logger *utils.WithLogger, producer *producer.P
 		_, _ = w.Write([]byte("Worker Service - Only health check available"))
 	})
 
+	config.HTTPAddress = utils.GetEnvOr("HTTP_PORT", ":8082")
 	httpServer := &http.Server{
 		Addr:    config.HTTPAddress,
 		Handler: mux,
@@ -56,9 +57,9 @@ func (a *App) Run() error {
 
 	// Start HTTP server for health checks in background
 	go func() {
-		log.Info().Msgf("Starting health check server on %s", a.config.HTTPAddress)
+		a.Logger.Info().Msgf("Starting health check server on %s", a.config.HTTPAddress)
 		if err := a.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Error().Err(err).Msg("Health check server failed")
+			a.Logger.Error().Err(err).Msg("Health check server failed")
 		}
 	}()
 

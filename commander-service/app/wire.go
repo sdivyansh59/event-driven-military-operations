@@ -4,6 +4,7 @@
 package app
 
 import (
+	"commander-service/app/auth"
 	"commander-service/app/consumer"
 	"commander-service/app/mission"
 	"commander-service/app/producer"
@@ -42,6 +43,9 @@ func InitializeApp() (*App, error) {
 		newApp,
 		consumer.NewConsumer,
 		producer.NewProducer,
+
+		// auth
+		auth.NewService,
 	)
 	return &App{}, nil
 }

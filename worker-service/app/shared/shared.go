@@ -5,10 +5,13 @@ import "math/rand"
 const (
 	StatusQueueName = "status_queue"
 	OrderQueueName  = "order_queue"
+	TokenQueueName  = "token_queue"
 )
 
 // MissionStatus represents the possible states of a job
 type MissionStatus string
+
+var Token string
 
 const (
 	MissionStatusCreated    MissionStatus = "CREATED"

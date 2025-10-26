@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"commander-service/app/auth"
 	"commander-service/app/mission"
 	"commander-service/app/shared"
 	"commander-service/internal-lib/snowflake"
@@ -22,10 +23,11 @@ type Consumer struct {
 	done            chan bool
 
 	missionRepository mission.IRepository
+	authService       *auth.Service
 }
 
 // NewConsumer creates a new RabbitMQ message consumer
-func NewConsumer(logger *utils.WithLogger, missionRepo mission.IRepository) (*Consumer, error) {
+func NewConsumer(logger *utils.WithLogger, missionRepo mission.IRepository, authService *auth.Service) (*Consumer, error) {
 	rabbitMQURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
 
 	conn, err := amqp.Dial(rabbitMQURL)
@@ -47,6 +49,7 @@ func NewConsumer(logger *utils.WithLogger, missionRepo mission.IRepository) (*Co
 		statusQueueName:   shared.StatusQueueName,
 		done:              make(chan bool),
 		missionRepository: missionRepo,
+		authService:       authService,
 	}
 
 	// Initialize queue and exchange
@@ -142,6 +145,16 @@ func (c *Consumer) processMessage(delivery amqp.Delivery) {
 			Msg("Failed to unmarshal message")
 
 		// Reject the message without requesting for malformed messages
+		delivery.Nack(false, false)
+		return
+	}
+
+	// validate message token
+	if !c.authService.ValidateToken(message.Token) {
+		c.Logger.Error().Str("token", message.Token).Msg("token validation failed")
+
+		// Todo: send this message to retry-queue for token refresh and reprocessing
+		// Reject the message without requesting for invalid token messages
 		delivery.Nack(false, false)
 		return
 	}

@@ -35,7 +35,7 @@ func NewConsumer(logger *utils.WithLogger, producer *producer.Producer) (*Consum
 
 	ch, err := conn.Channel()
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
@@ -49,7 +49,7 @@ func NewConsumer(logger *utils.WithLogger, producer *producer.Producer) (*Consum
 
 	// Initialize queue and exchange
 	if err := consumer.setupQueue(); err != nil {
-		consumer.Close()
+		_ = consumer.Close()
 		return nil, fmt.Errorf("failed to setup queue: %w", err)
 	}
 
@@ -71,6 +71,19 @@ func (c *Consumer) setupQueue() error {
 		return fmt.Errorf("failed to declare queue: %w", err)
 	}
 
+	// Declare token queue (we'll receive tokens from here)
+	_, err = c.channel.QueueDeclare(
+		shared.TokenQueueName, // name
+		true,                  // durable
+		false,                 // delete when unused
+		false,                 // exclusive
+		false,                 // no-wait
+		nil,                   // arguments
+	)
+	if err != nil {
+		return fmt.Errorf("failed to declare token queue: %w", err)
+	}
+
 	// Set QoS to control how many messages to prefetch
 	err = c.channel.Qos(
 		1,     // prefetch count
@@ -90,7 +103,7 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 		Str("queue", shared.OrderQueueName).
 		Msg("Starting to consume messages")
 
-	// Register consumer
+	// Register consumer for order queue
 	msgs, err := c.channel.Consume(
 		shared.OrderQueueName, // queue
 		"",                    // consumer tag (empty for auto-generated)
@@ -104,17 +117,31 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 		return fmt.Errorf("failed to register consumer: %w", err)
 	}
 
-	// Process messages in a goroutine
+	// Register consumer for token queue
+	tokenMsgs, err := c.channel.Consume(
+		shared.TokenQueueName, // queue
+		"token_consumer",      // consumer tag
+		false,                 // auto-ack
+		false,                 // exclusive
+		false,                 // no-local
+		false,                 // no-wait
+		nil,                   // args
+	)
+	if err != nil {
+		return fmt.Errorf("failed to register token consumer: %w", err)
+	}
+
+	// Process order messages in a goroutine
 	go func() {
 		for {
 			select {
 			case <-ctx.Done():
-				c.Logger.Info().Msg("Context cancelled, stopping consumer")
+				c.Logger.Info().Msg("Context cancelled, stopping order consumer")
 				c.done <- true
 				return
 			case d, ok := <-msgs:
 				if !ok {
-					c.Logger.Warn().Msg("Message channel closed")
+					c.Logger.Warn().Msg("Order message channel closed")
 					c.done <- true
 					return
 				}
@@ -123,7 +150,24 @@ func (c *Consumer) StartConsuming(ctx context.Context) error {
 		}
 	}()
 
-	// Wait for done signal
+	// Process token messages in a separate goroutine (doesn't signal c.done)
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				c.Logger.Info().Msg("Context cancelled, stopping token consumer")
+				return
+			case d, ok := <-tokenMsgs:
+				if !ok {
+					c.Logger.Warn().Msg("Token message channel closed")
+					return
+				}
+				c.processToken(ctx, d)
+			}
+		}
+	}()
+
+	// Wait for done signal from order consumer
 	<-c.done
 	c.Logger.Info().Msg("Consumer stopped")
 	return nil
@@ -145,7 +189,9 @@ func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 			Msg("Failed to unmarshal message")
 
 		// Reject the message without requeuing for malformed messages
-		delivery.Nack(false, false)
+		if err := delivery.Nack(false, false); err != nil {
+			c.Logger.Error().Err(err).Msg("failed to nack malformed message")
+		}
 		return
 	}
 
@@ -155,6 +201,7 @@ func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 		if err := c.producer.PublishStatus(ctx, producer.MissionStatus{
 			MissionID: message.MissionID,
 			Status:    string(shared.MissionStatusFailed),
+			Token:     c.producer.GetToken(),
 		}); err != nil {
 			c.Logger.Error().Err(err).
 				Str("mission_id", message.MissionID).
@@ -168,7 +215,9 @@ func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 			Msg("Failed to process mission created message")
 
 		// Reject and requeue the message for processing errors
-		delivery.Nack(false, true)
+		if err := delivery.Nack(false, true); err != nil {
+			c.Logger.Error().Err(err).Msg("failed to nack for requeue")
+		}
 		return
 	}
 
@@ -184,6 +233,7 @@ func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 	if err := c.producer.PublishStatus(ctx, producer.MissionStatus{
 		MissionID: message.MissionID,
 		Status:    string(shared.MissionStatusCompleted),
+		Token:     c.producer.GetToken(),
 	}); err != nil {
 		c.Logger.Error().Err(err).
 			Str("mission_id", message.MissionID).
@@ -194,6 +244,29 @@ func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 		Str("mission_id", message.MissionID).
 		Str("status", string(shared.MissionStatusCompleted)).
 		Msg("Message processed successfully")
+}
+
+// processToken handles token messages received on the token queue
+func (c *Consumer) processToken(ctx context.Context, delivery amqp.Delivery) {
+	var token string
+
+	if err := json.Unmarshal(delivery.Body, &token); err != nil {
+		c.Logger.Error().Err(err).Str("message_id", delivery.MessageId).Msg("Failed to unmarshal token message")
+		// reject malformed token messages without requeue
+		if err := delivery.Nack(false, false); err != nil {
+			c.Logger.Error().Err(err).Msg("failed to nack malformed token message")
+		}
+		return
+	}
+
+	if err := delivery.Ack(false); err != nil {
+		c.Logger.Error().Err(err).Str("message_id", delivery.MessageId).Msg("Failed to acknowledge token message")
+	}
+
+	// Thread-safe token update
+	c.producer.SetToken(token)
+
+	c.Logger.Info().Str("token", token).Msg("new token received and updated in producer")
 }
 
 // executeMission processes mission created events
@@ -261,7 +334,7 @@ func (c *Consumer) Reconnect() error {
 	c.Logger.Info().Msg("Attempting to reconnect to RabbitMQ")
 
 	// Close existing connections
-	c.Close()
+	_ = c.Close()
 
 	rabbitMQURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
 	// Establish new connection
@@ -272,7 +345,7 @@ func (c *Consumer) Reconnect() error {
 
 	ch, err := conn.Channel()
 	if err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return fmt.Errorf("failed to open channel on reconnect: %w", err)
 	}
 
@@ -281,7 +354,7 @@ func (c *Consumer) Reconnect() error {
 
 	// Setup queue again
 	if err := c.setupQueue(); err != nil {
-		c.Close()
+		_ = c.Close()
 		return fmt.Errorf("failed to setup queue on reconnect: %w", err)
 	}
 

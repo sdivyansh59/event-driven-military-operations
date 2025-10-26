@@ -43,60 +43,60 @@ services:
       start_period: 30s
     networks:
       - military-operation-network
-
-  commander-service:
-    build:
-      context: ./commander-service
-      dockerfile: Dockerfile
-    container_name: military-operation-commander
-    restart: unless-stopped
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      DEBUG: ${DEBUG:-false}
-      PORT: ${PORT:-8080}
-      LOG_DIR: /app/logs
-      POSTGRES_DB_HOST: postgres
-      POSTGRES_DB_PORT: 5432
-      POSTGRES_DB_USER: ${POSTGRES_DB_USER:-postgres}
-      POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD:-postgres}
-      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-commanders_camp_db}
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/
-      ORDER_QUEUE_NAME: ${ORDER_QUEUE_NAME:-order_queue}
-      STATUS_QUEUE_NAME: ${STATUS_QUEUE_NAME:-status_queue}
-      TOKEN_QUEUE_NAME: ${TOKEN_QUEUE_NAME:-token_queue}
-    ports:
-      - "${PORT:-8080}:8080"
-    volumes:
-      - ./commander-service/logs:/app/logs
-    depends_on:
-      postgres:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - military-operation-network
-
-  worker-service:
-    build:
-      context: ./worker-service
-      dockerfile: Dockerfile
-    container_name: military-operation-worker
-    restart: unless-stopped
-    environment:
-      ENVIRONMENT: ${ENVIRONMENT:-production}
-      DEBUG: ${DEBUG:-false}
-      LOG_DIR: /app/logs
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/
-      ORDER_QUEUE_NAME: ${ORDER_QUEUE_NAME:-order_queue}
-      STATUS_QUEUE_NAME: ${STATUS_QUEUE_NAME:-status_queue}
-      TOKEN_QUEUE_NAME: ${TOKEN_QUEUE_NAME:-token_queue}
-    volumes:
-      - ./worker-service/logs:/app/logs
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - military-operation-network
+#
+#  commander-service:
+#    build:
+#      context: ./commander-service
+#      dockerfile: Dockerfile
+#    container_name: military-operation-commander
+#    restart: unless-stopped
+#    environment:
+#      ENVIRONMENT: ${ENVIRONMENT:-production}
+#      DEBUG: ${DEBUG:-false}
+#      PORT: ${PORT:-8080}
+#      LOG_DIR: /app/logs
+#      POSTGRES_DB_HOST: postgres
+#      POSTGRES_DB_PORT: 5432
+#      POSTGRES_DB_USER: ${POSTGRES_DB_USER:-postgres}
+#      POSTGRES_DB_PASSWORD: ${POSTGRES_DB_PASSWORD:-postgres}
+#      POSTGRES_DB_NAME: ${POSTGRES_DB_NAME:-commanders_camp_db}
+#      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/
+#      ORDER_QUEUE_NAME: ${ORDER_QUEUE_NAME:-order_queue}
+#      STATUS_QUEUE_NAME: ${STATUS_QUEUE_NAME:-status_queue}
+#      TOKEN_QUEUE_NAME: ${TOKEN_QUEUE_NAME:-token_queue}
+#    ports:
+#      - "${PORT:-8080}:8080"
+#    volumes:
+#      - ./commander-service/logs:/app/logs
+#    depends_on:
+#      postgres:
+#        condition: service_healthy
+#      rabbitmq:
+#        condition: service_healthy
+#    networks:
+#      - military-operation-network
+#
+#  worker-service:
+#    build:
+#      context: ./worker-service
+#      dockerfile: Dockerfile
+#    container_name: military-operation-worker
+#    restart: unless-stopped
+#    environment:
+#      ENVIRONMENT: ${ENVIRONMENT:-production}
+#      DEBUG: ${DEBUG:-false}
+#      LOG_DIR: /app/logs
+#      RABBITMQ_URL: amqp://${RABBITMQ_USER:-admin}:${RABBITMQ_PASSWORD:-password}@rabbitmq:5672/
+#      ORDER_QUEUE_NAME: ${ORDER_QUEUE_NAME:-order_queue}
+#      STATUS_QUEUE_NAME: ${STATUS_QUEUE_NAME:-status_queue}
+#      TOKEN_QUEUE_NAME: ${TOKEN_QUEUE_NAME:-token_queue}
+#    volumes:
+#      - ./worker-service/logs:/app/logs
+#    depends_on:
+#      rabbitmq:
+#        condition: service_healthy
+#    networks:
+#      - military-operation-network
 
 volumes:
   postgres_data:

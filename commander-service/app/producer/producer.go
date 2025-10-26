@@ -1,6 +1,7 @@
 package producer
 
 import (
+	"commander-service/app/auth"
 	"commander-service/app/shared"
 	"commander-service/internal-lib/utils"
 	"context"
@@ -16,15 +17,15 @@ type Producer struct {
 	channel         *amqp.Channel
 	statusQueueName string
 	orderQueueName  string
-	tokenQueueName  string
 }
 
 type MissionStatus struct {
 	MissionID string `json:"mission_id"`
 	Status    string `json:"status"`
+	Token     string `json:"token"`
 }
 
-func NewProducer(logger *utils.WithLogger) (*Producer, error) {
+func NewProducer(logger *utils.WithLogger, authService *auth.Service) (*Producer, error) {
 	rabbitmqURL := utils.GetEnvOr("RABBITMQ_URL", "amqp://admin:password@localhost:5672/")
 
 	conn, err := amqp.Dial(rabbitmqURL)
@@ -38,6 +39,7 @@ func NewProducer(logger *utils.WithLogger) (*Producer, error) {
 		return nil, fmt.Errorf("failed to open channel: %w", err)
 	}
 
+	// Declare order queue
 	_, err = channel.QueueDeclare(
 		shared.OrderQueueName, // name
 		true,                  // durable
@@ -49,7 +51,7 @@ func NewProducer(logger *utils.WithLogger) (*Producer, error) {
 	if err != nil {
 		channel.Close()
 		conn.Close()
-		return nil, fmt.Errorf("failed to declare queue: %w", err)
+		return nil, fmt.Errorf("failed to declare order queue: %w", err)
 	}
 
 	return &Producer{
@@ -58,7 +60,6 @@ func NewProducer(logger *utils.WithLogger) (*Producer, error) {
 		channel:         channel,
 		statusQueueName: shared.StatusQueueName,
 		orderQueueName:  shared.OrderQueueName,
-		tokenQueueName:  shared.TokenQueueName,
 	}, nil
 }
 
