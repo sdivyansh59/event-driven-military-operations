@@ -243,7 +243,8 @@ func (c *Consumer) processMessage(ctx context.Context, delivery amqp.Delivery) {
 	c.Logger.Info().
 		Str("mission_id", message.MissionID).
 		Str("status", string(shared.MissionStatusCompleted)).
-		Msg("Message processed successfully")
+		Str("token", c.producer.GetToken()).
+		Msg("Status update published successfully")
 }
 
 // processToken handles token messages received on the token queue
@@ -280,6 +281,7 @@ func (c *Consumer) executeMission(ctx context.Context, message *shared.OrderMess
 	if err := c.producer.PublishStatus(ctx, producer.MissionStatus{
 		MissionID: message.MissionID,
 		Status:    string(shared.MissionStatusInProgress),
+		Token:     c.producer.GetToken(),
 	}); err != nil {
 		return fmt.Errorf("failed to publish in-progress status: %w", err)
 	}
